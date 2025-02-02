@@ -40,14 +40,12 @@ steps:
 
 # Subir APK a GitHub
 - script: |
-    git config --global user.email "celopez8@espe.edu.ec"
-    git config --global user.name "carlos-lopez-c"
     git clone https://$(GITHUB_PAT)@github.com/carlos-lopez-c/PRUEBAPIPELINE.git
-    cd repositorio
+    cd PRUEBAPIPELINE
     cp "$(Build.ArtifactStagingDirectory)/funesami.apk" .
-    git add funesami.apk
-    git commit -m "Subiendo APK generado automáticamente"
-    git push origin main
+    git add .
+    git commit -m "Subiendo APK generado automáticamente" || echo "No hay cambios para commit"
+    git push origin main || git push origin HEAD:main
   env:
     GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Subir APK a GitHub'
