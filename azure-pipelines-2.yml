@@ -5,26 +5,26 @@ pool:
   vmImage: 'ubuntu-latest'
 
 steps:
-- task: UseFlutter@0
-  inputs:
-    mode: 'auto'
+- script: |
+    sudo apt-get update
+    sudo apt-get install -y curl unzip
+    curl -o flutter.zip https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.16.1-stable.zip
+    unzip flutter.zip
+    export PATH="$PATH:`pwd`/flutter/bin"
+    flutter doctor
+  displayName: 'Instalar Flutter'
 
-- task: FlutterCommand@0
+- script: |
+    flutter pub get
   displayName: 'Instalar dependencias'
-  inputs:
-    arguments: 'pub get'
 
-- task: FlutterCommand@0
+- script: |
+    flutter build apk --release
   displayName: 'Construir APK'
-  inputs:
-    arguments: 'build apk --release'
 
-- task: CopyFiles@2
-  displayName: 'Copiar APK generado'
-  inputs:
-    SourceFolder: '$(Build.SourcesDirectory)/build/app/outputs/flutter-apk'
-    Contents: 'app-release.apk'
-    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+- script: |
+    cp build/app/outputs/flutter-apk/app-release.apk $(Build.ArtifactStagingDirectory)/
+  displayName: 'Copiar APK'
 
 - task: PublishBuildArtifacts@1
   displayName: 'Publicar APK'
@@ -32,14 +32,8 @@ steps:
     pathToPublish: '$(Build.ArtifactStagingDirectory)'
     artifactName: 'drop'
 
-- task: GitHubRelease@1
+- script: |
+    gh release create v$(Build.BuildId) $(Build.ArtifactStagingDirectory)/app-release.apk --repo $(Build.Repository.Uri) --title "Nueva versión" --notes "APK generado automáticamente"
+  env:
+    GH_TOKEN: $(GitHubToken)
   displayName: 'Subir APK a GitHub Releases'
-  inputs:
-    gitHubConnection: 'github-service-connection'
-    repositoryName: '$(Build.Repository.Name)'
-    action: 'create'
-    target: '$(Build.SourceVersion)'
-    tagSource: 'auto'
-    title: 'Nueva versión'
-    assets: '$(Build.ArtifactStagingDirectory)/app-release.apk'
-    assetUploadMode: 'replace'
