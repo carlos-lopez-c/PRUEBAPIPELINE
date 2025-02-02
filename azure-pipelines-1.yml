@@ -1,73 +1,35 @@
 trigger:
-  - main
+- main  # O la rama que usas
 
 pool:
-  name: 'Default'  # Usa el nombre del pool configurado
-
-variables:
-- group: pruabPipeline  # Grupo de variables con el token de GitHub
+  vmImage: 'ubuntu-latest'
 
 steps:
 - script: |
-    set FLUTTER_HOME=C:\flutter
-    set PATH=%FLUTTER_HOME%\bin;%PATH%
+    sudo apt-get update -qq
+    sudo apt-get install -y unzip curl
+    curl -o flutter.tar.xz https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.13.0-stable.tar.xz
+    tar xf flutter.tar.xz
+    echo "##vso[task.setvariable variable=PATH]$(pwd)/flutter/bin:$(PATH)"
     flutter doctor
-  displayName: 'Set up Flutter'
+  displayName: 'Instalar Flutter'
+
+- script: flutter clean
+  displayName: 'Limpiar caché de Flutter'
 
 - script: flutter pub get
-  displayName: 'Install dependencies'
+  displayName: 'Instalar dependencias'
 
 - script: flutter build apk --release
-  displayName: 'Build APK'
+  displayName: 'Compilar APK'
 
-# Verificar si el APK se generó correctamente antes de moverlo
 - script: |
-    if exist build\app\outputs\flutter-apk\app-release.apk (
-      move build\app\outputs\flutter-apk\app-release.apk build\funesami.apk
-    ) else (
-      echo "Error: APK no generado correctamente" & exit /b 1
-    )
-  displayName: 'Move and Rename APK'
-
-# Listar el contenido de la carpeta 'build' para depuración
-- script: dir build
-  displayName: 'List APK Directory'
-
-# Verificar si el APK existe antes de copiarlo
-- script: |
-    if not exist build\funesami.apk (
-      echo "Error: APK no encontrado en la carpeta build" & exit /b 1
-    )
-  displayName: 'Check APK Existence'
-
-- task: CopyFiles@2
-  inputs:
-    contents: 'build\funesami.apk'
-    targetFolder: '$(Build.ArtifactStagingDirectory)'
-  displayName: 'Copy APK to Artifact Staging'
+    mkdir -p $(Build.ArtifactStagingDirectory)
+    cp build/app/outputs/flutter-apk/app-release.apk $(Build.ArtifactStagingDirectory)/
+  displayName: 'Mover APK a la carpeta de artefactos'
 
 - task: PublishBuildArtifacts@1
   inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)'
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/app-release.apk'
     artifactName: 'apk'
-  displayName: 'Publish APK Artifact'
-
-# Subir APK a GitHub con verificación de cambios
-- script: |
-    git clone https://$(GITHUB_PAT)@github.com/carlos-lopez-c/PRUEBAPIPELINE.git
-    cd PRUEBAPIPELINE
-
-    if exist "$(Build.ArtifactStagingDirectory)/funesami.apk" (
-      cp "$(Build.ArtifactStagingDirectory)/funesami.apk" .
-      git add funesami.apk
-
-      git diff --cached --exit-code || (
-        git commit -m "Subiendo APK generado automáticamente"
-        git push origin main
-      )
-    ) else (
-      echo "Error: No se encontró el APK para subir a GitHub" & exit /b 1
-    )
-  env:
-    GITHUB_PAT: $(GITHUB_PAT)
-  displayName: 'Subir APK a GitHub'
+  displayName: 'Publicar APK como artefacto'
