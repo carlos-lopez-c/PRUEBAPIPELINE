@@ -1,39 +1,35 @@
 trigger:
-- main
+- main  # O la rama que usas
 
 pool:
   vmImage: 'ubuntu-latest'
 
 steps:
 - script: |
-    sudo apt-get update
-    sudo apt-get install -y curl unzip
-    curl -o flutter.zip https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.16.1-stable.zip
-    unzip flutter.zip
-    export PATH="$PATH:`pwd`/flutter/bin"
+    sudo apt-get update -qq
+    sudo apt-get install -y unzip curl
+    curl -o flutter.tar.xz https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.13.0-stable.tar.xz
+    tar xf flutter.tar.xz
+    echo "##vso[task.setvariable variable=PATH]$(pwd)/flutter/bin:$(PATH)"
     flutter doctor
   displayName: 'Instalar Flutter'
 
-- script: |
-    flutter pub get
+- script: flutter clean
+  displayName: 'Limpiar caché de Flutter'
+
+- script: flutter pub get
   displayName: 'Instalar dependencias'
 
-- script: |
-    flutter build apk --release
-  displayName: 'Construir APK'
+- script: flutter build apk --release
+  displayName: 'Compilar APK'
 
 - script: |
+    mkdir -p $(Build.ArtifactStagingDirectory)
     cp build/app/outputs/flutter-apk/app-release.apk $(Build.ArtifactStagingDirectory)/
-  displayName: 'Copiar APK'
+  displayName: 'Mover APK a la carpeta de artefactos'
 
 - task: PublishBuildArtifacts@1
-  displayName: 'Publicar APK'
   inputs:
-    pathToPublish: '$(Build.ArtifactStagingDirectory)'
-    artifactName: 'drop'
-
-- script: |
-    gh release create v$(Build.BuildId) $(Build.ArtifactStagingDirectory)/app-release.apk --repo $(Build.Repository.Uri) --title "Nueva versión" --notes "APK generado automáticamente"
-  env:
-    GH_TOKEN: $(GitHubToken)
-  displayName: 'Subir APK a GitHub Releases'
+    pathToPublish: '$(Build.ArtifactStagingDirectory)/app-release.apk'
+    artifactName: 'apk'
+  displayName: 'Publicar APK como artefacto'
