@@ -1,0 +1,45 @@
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+steps:
+- task: UseFlutter@0
+  inputs:
+    mode: 'auto'
+
+- task: FlutterCommand@0
+  displayName: 'Instalar dependencias'
+  inputs:
+    arguments: 'pub get'
+
+- task: FlutterCommand@0
+  displayName: 'Construir APK'
+  inputs:
+    arguments: 'build apk --release'
+
+- task: CopyFiles@2
+  displayName: 'Copiar APK generado'
+  inputs:
+    SourceFolder: '$(Build.SourcesDirectory)/build/app/outputs/flutter-apk'
+    Contents: 'app-release.apk'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+- task: PublishBuildArtifacts@1
+  displayName: 'Publicar APK'
+  inputs:
+    pathToPublish: '$(Build.ArtifactStagingDirectory)'
+    artifactName: 'drop'
+
+- task: GitHubRelease@1
+  displayName: 'Subir APK a GitHub Releases'
+  inputs:
+    gitHubConnection: 'github-service-connection'
+    repositoryName: '$(Build.Repository.Name)'
+    action: 'create'
+    target: '$(Build.SourceVersion)'
+    tagSource: 'auto'
+    title: 'Nueva versión'
+    assets: '$(Build.ArtifactStagingDirectory)/app-release.apk'
+    assetUploadMode: 'replace'
