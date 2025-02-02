@@ -2,10 +2,10 @@ trigger:
   - main
 
 pool:
-  name: 'Default'  # Usa el nombre del pool que configuraste
+  name: 'Default'  # Usa el nombre del pool configurado
 
 variables:
-- group: pruabPipeline  # Enlaza el grupo de variables con el token de GitHub
+- group: pruabPipeline  # Grupo de variables con el token de GitHub
 
 steps:
 - script: |
@@ -20,13 +20,25 @@ steps:
 - script: flutter build apk --release
   displayName: 'Build APK'
 
-# Generar APK directamente en la carpeta build
+# Verificar si el APK se generó correctamente antes de moverlo
 - script: |
-    move build\app\outputs\flutter-apk\app-release.apk build\funesami.apk
-  displayName: 'Move and Rename APK to build folder'
+    if exist build\app\outputs\flutter-apk\app-release.apk (
+      move build\app\outputs\flutter-apk\app-release.apk build\funesami.apk
+    ) else (
+      echo "Error: APK no generado correctamente" & exit /b 1
+    )
+  displayName: 'Move and Rename APK'
 
+# Listar el contenido de la carpeta 'build' para depuración
 - script: dir build
   displayName: 'List APK Directory'
+
+# Verificar si el APK existe antes de copiarlo
+- script: |
+    if not exist build\funesami.apk (
+      echo "Error: APK no encontrado en la carpeta build" & exit /b 1
+    )
+  displayName: 'Check APK Existence'
 
 - task: CopyFiles@2
   inputs:
@@ -40,14 +52,22 @@ steps:
     artifactName: 'apk'
   displayName: 'Publish APK Artifact'
 
-# Subir APK a GitHub
+# Subir APK a GitHub con verificación de cambios
 - script: |
     git clone https://$(GITHUB_PAT)@github.com/carlos-lopez-c/PRUEBAPIPELINE.git
     cd PRUEBAPIPELINE
-    cp "$(Build.ArtifactStagingDirectory)/funesami.apk" . 
-    git add . 
-    git commit -m "Subiendo APK generado automáticamente" || echo "No hay cambios para commit" 
-    git push origin main || git push origin HEAD:main
+
+    if exist "$(Build.ArtifactStagingDirectory)/funesami.apk" (
+      cp "$(Build.ArtifactStagingDirectory)/funesami.apk" .
+      git add funesami.apk
+
+      git diff --cached --exit-code || (
+        git commit -m "Subiendo APK generado automáticamente"
+        git push origin main
+      )
+    ) else (
+      echo "Error: No se encontró el APK para subir a GitHub" & exit /b 1
+    )
   env:
     GITHUB_PAT: $(GITHUB_PAT)
   displayName: 'Subir APK a GitHub'
