@@ -20,15 +20,17 @@ steps:
 - script: flutter build apk --release
   displayName: 'Build APK'
 
-- script: mkdir build\apkfile && move build\app\outputs\flutter-apk\app-release.apk build\apkfile\funesami.apk
-  displayName: 'Move and Rename APK'
+# Generar APK directamente en la carpeta build
+- script: |
+    move build\app\outputs\flutter-apk\app-release.apk build\funesami.apk
+  displayName: 'Move and Rename APK to build folder'
 
-- script: dir build\apkfile
+- script: dir build
   displayName: 'List APK Directory'
 
 - task: CopyFiles@2
   inputs:
-    contents: 'build/apkfile/funesami.apk'
+    contents: 'build\funesami.apk'
     targetFolder: '$(Build.ArtifactStagingDirectory)'
   displayName: 'Copy APK to Artifact Staging'
 
@@ -42,9 +44,9 @@ steps:
 - script: |
     git clone https://$(GITHUB_PAT)@github.com/carlos-lopez-c/PRUEBAPIPELINE.git
     cd PRUEBAPIPELINE
-    cp "$(Build.ArtifactStagingDirectory)/funesami.apk" .
-    git add .
-    git commit -m "Subiendo APK generado automáticamente" || echo "No hay cambios para commit"
+    cp "$(Build.ArtifactStagingDirectory)/funesami.apk" . 
+    git add . 
+    git commit -m "Subiendo APK generado automáticamente" || echo "No hay cambios para commit" 
     git push origin main || git push origin HEAD:main
   env:
     GITHUB_PAT: $(GITHUB_PAT)
